@@ -29,18 +29,24 @@ ATR_PERIOD = 14
 ATR_THRESHOLD_PERCENT = 0.05
 
 # ==========================================================================================
-# == REQUIRED FUNCTIONS FOR THE BACKTESTER (Unchanged)
+# == REQUIRED FUNCTIONS FOR THE BACKTESTER (Fixed)
 # ==========================================================================================
 
 def calculate_indicators(df):
     """Calculates all necessary indicators for the backtester."""
-    df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close'}, inplace=True, errors='ignore')
-    df['EMA_200'] = df['Close'].ewm(span=EMA_PERIOD, adjust=False).mean()
-    high_low = df['High'] - df['Low']
-    high_close = (df['High'] - df['Close'].shift()).abs()
-    low_close = (df['Low'] - df['Close'].shift()).abs()
+    
+    # FIX: Removed the .rename() line to keep columns lowercase
+    
+    # FIX: 'Close' -> 'close'
+    df['EMA_200'] = df['close'].ewm(span=EMA_PERIOD, adjust=False).mean()
+    
+    # FIX: 'High', 'Low', 'Close' -> 'high', 'low', 'close'
+    high_low = df['high'] - df['low']
+    high_close = (df['high'] - df['close'].shift()).abs()
+    low_close = (df['low'] - df['close'].shift()).abs()
     tr = high_low.combine(high_close, max).combine(low_close, max)
     df['ATR'] = tr.rolling(window=ATR_PERIOD).mean()
+    
     df.dropna(inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
@@ -49,12 +55,19 @@ def get_signal(df):
     """Determines the signal for the backtester."""
     if len(df) < 2: return "WAIT", None
     setup_candle, action_candle = df.iloc[-2], df.iloc[-1]
-    min_atr_value = setup_candle.get('Close', 0) * (ATR_THRESHOLD_PERCENT / 100.0)
+    
+    # FIX: 'Close' -> 'close'
+    min_atr_value = setup_candle.get('close', 0) * (ATR_THRESHOLD_PERCENT / 100.0)
     if setup_candle.get('ATR', 0) <= min_atr_value: return "WAIT", None
-    if setup_candle.get('Low', 0) <= setup_candle.get('EMA_200', float('inf')) and action_candle.get('High', 0) > setup_candle.get('High', 0):
-        return "BUY", setup_candle['Low']
-    if setup_candle.get('High', 0) >= setup_candle.get('EMA_200', 0) and action_candle.get('Low', 0) < setup_candle.get('Low', 0):
-        return "SELL", setup_candle['High']
+    
+    # FIX: 'Low', 'High' -> 'low', 'high'
+    if setup_candle.get('low', 0) <= setup_candle.get('EMA_200', float('inf')) and action_candle.get('high', 0) > setup_candle.get('high', 0):
+        return "BUY", setup_candle['low']
+    
+    # FIX: 'High', 'Low' -> 'high', 'low'
+    if setup_candle.get('high', 0) >= setup_candle.get('EMA_200', 0) and action_candle.get('low', 0) < setup_candle.get('low', 0):
+        return "SELL", setup_candle['high']
+    
     return "WAIT", None
 
 # ==========================================================================================
@@ -178,34 +191,39 @@ def _strategy_loop(symbol, timeframe, log_callback=None):
             
             if setup_candle is None or last_candle['time'] != setup_candle['time']:
                 pending_signal = None
-                min_atr_value = last_candle.get('Close', 0) * (ATR_THRESHOLD_PERCENT / 100.0)
+                
+                # FIX: 'Close' -> 'close'
+                min_atr_value = last_candle.get('close', 0) * (ATR_THRESHOLD_PERCENT / 100.0)
                 current_atr = last_candle.get('ATR', 0)
                 
                 if current_atr > min_atr_value:
-                    if last_candle['Low'] <= last_candle['EMA_200']:
+                    # FIX: 'Low', 'High' -> 'low', 'high'
+                    if last_candle['low'] <= last_candle['EMA_200']:
                         setup_candle = last_candle.copy(); pending_signal = "BUY"
-                        log(f"📈 BUY Setup on {symbol}: Waiting for breakout above {setup_candle['High']:.5f}", log_callback)
-                    elif last_candle['High'] >= last_candle['EMA_200']:
+                        log(f"📈 BUY Setup on {symbol}: Waiting for breakout above {setup_candle['high']:.5f}", log_callback)
+                    elif last_candle['high'] >= last_candle['EMA_200']:
                         setup_candle = last_candle.copy(); pending_signal = "SELL"
-                        log(f"📉 SELL Setup on {symbol}: Waiting for breakdown below {setup_candle['Low']:.5f}", log_callback)
+                        log(f"📉 SELL Setup on {symbol}: Waiting for breakdown below {setup_candle['low']:.5f}", log_callback)
 
             if pending_signal:
                 tick = mt5.symbol_info_tick(symbol)
                 if not tick or mt5.positions_get(symbol=symbol):
                     time.sleep(1); continue
 
-                if pending_signal == "BUY" and tick.ask > setup_candle['High']:
+                # FIX: 'High', 'Low' -> 'high', 'low'
+                if pending_signal == "BUY" and tick.ask > setup_candle['high']:
                     log(f"🔥 BUY TRIGGER on {symbol}!", log_callback)
-                    stop_loss = setup_candle['Low'] - ((setup_candle['High'] - setup_candle['Low']) * 0.1)
+                    stop_loss = setup_candle['low'] - ((setup_candle['high'] - setup_candle['low']) * 0.1)
                     ticket = place_order(symbol, "BUY", stop_loss, log_callback)
                     if ticket:
                         threading.Thread(target=_monitor_open_position, args=(ticket, log_callback), daemon=True).start()
                     pending_signal = None; setup_candle = None
                     time.sleep(60)
                 
-                elif pending_signal == "SELL" and tick.bid < setup_candle['Low']:
+                # FIX: 'High', 'Low' -> 'high', 'low'
+                elif pending_signal == "SELL" and tick.bid < setup_candle['low']:
                     log(f"🔥 SELL TRIGGER on {symbol}!", log_callback)
-                    stop_loss = setup_candle['High'] + ((setup_candle['High'] - setup_candle['Low']) * 0.1)
+                    stop_loss = setup_candle['high'] + ((setup_candle['high'] - setup_candle['low']) * 0.1)
                     ticket = place_order(symbol, "SELL", stop_loss, log_callback)
                     if ticket:
                         threading.Thread(target=_monitor_open_position, args=(ticket, log_callback), daemon=True).start()
@@ -216,7 +234,7 @@ def _strategy_loop(symbol, timeframe, log_callback=None):
             log(f"❌ Error in strategy loop: {e}", log_callback)
             time.sleep(10)
 
-def run_strategy(symbol, timeframe, log_callback=None, profit_callback=None):
+def run_strategy(symbol, timeframe, log_callback=None):
     """Starts the trading bot. Required by the GUI."""
     global bot_running
     if bot_running: log("⚠️ Strategy is already running.", log_callback); return True

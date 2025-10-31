@@ -16,7 +16,7 @@ import time
 VOLUME = 0.10          # Lot size for trades
 MAGIC = 445566
 RR_RATIO = 3.0         # Reward:Risk ratio (Take Profit is 2x Stop Loss)
-ATR_THRESHOLD = 50 # The minimum ATR value required to consider a trade
+ATR_THRESHOLD = 50     # The minimum ATR value required to consider a trade
 
 # --- Indicator Settings ---
 EMA_PERIOD = 200
@@ -28,15 +28,18 @@ ATR_PERIOD = 14        # Standard period for Average True Range
 
 def calculate_indicators(df):
     """Calculates all necessary indicators for the backtester."""
-    df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close'}, inplace=True, errors='ignore')
+    
+    # FIX: REMOVED the df.rename() line that was causing the case mismatch.
     
     # EMA for the reversal zone
-    df['EMA_200'] = df['Close'].ewm(span=EMA_PERIOD, adjust=False).mean()
+    # FIX: 'Close' -> 'close'
+    df['EMA_200'] = df['close'].ewm(span=EMA_PERIOD, adjust=False).mean()
     
     # --- ADDED: ATR Calculation for Volatility Filter ---
-    high_low = df['High'] - df['Low']
-    high_close = (df['High'] - df['Close'].shift()).abs()
-    low_close = (df['Low'] - df['Close'].shift()).abs()
+    # FIX: 'High', 'Low', 'Close' -> 'high', 'low', 'close'
+    high_low = df['high'] - df['low']
+    high_close = (df['high'] - df['close'].shift()).abs()
+    low_close = (df['low'] - df['close'].shift()).abs()
     tr = high_low.combine(high_close, max).combine(low_close, max)
     df['ATR'] = tr.rolling(window=ATR_PERIOD).mean()
     
@@ -58,15 +61,17 @@ def get_signal(df):
         return "WAIT", None # Market volatility is too low, ignore signals
 
     # --- BUY SIGNAL CHECK ---
-    if setup_candle.get('Low', 0) <= setup_candle.get('EMA_200', float('inf')):
-        if action_candle.get('High', 0) > setup_candle.get('High', 0):
-            stop_loss_price = setup_candle['Low']
+    # FIX: 'Low', 'High' -> 'low', 'high'
+    if setup_candle.get('low', 0) <= setup_candle.get('EMA_200', float('inf')):
+        if action_candle.get('high', 0) > setup_candle.get('high', 0):
+            stop_loss_price = setup_candle['low']
             return "BUY", stop_loss_price
 
     # --- SELL SIGNAL CHECK ---
-    if setup_candle.get('High', 0) >= setup_candle.get('EMA_200', 0):
-        if action_candle.get('Low', 0) < setup_candle.get('Low', 0):
-            stop_loss_price = setup_candle['High']
+    # FIX: 'High', 'Low' -> 'high', 'low'
+    if setup_candle.get('high', 0) >= setup_candle.get('EMA_200', 0):
+        if action_candle.get('low', 0) < setup_candle.get('low', 0):
+            stop_loss_price = setup_candle['high']
             return "SELL", stop_loss_price
     
     return "WAIT", None
@@ -149,15 +154,16 @@ def _strategy_loop(symbol, timeframe, log_callback=None):
                     pass # Don't look for a setup if volatility is too low
                 else:
                     # If ATR is high enough, check for a new setup
-                    if last_candle['Low'] <= last_candle['EMA_200']:
+                    # FIX: 'Low', 'High' -> 'low', 'high'
+                    if last_candle['low'] <= last_candle['EMA_200']:
                         setup_candle = last_candle.copy()
                         pending_signal = "BUY"
-                        log(f"📈 BUY Setup on {symbol}: Candle at {setup_candle['time']} touched EMA (ATR: {setup_candle['ATR']:.4f}). Waiting for breakout above {setup_candle['High']:.5f}", log_callback)
+                        log(f"📈 BUY Setup on {symbol}: Candle at {setup_candle['time']} touched EMA (ATR: {setup_candle['ATR']:.4f}). Waiting for breakout above {setup_candle['high']:.5f}", log_callback)
                     
-                    elif last_candle['High'] >= last_candle['EMA_200']:
+                    elif last_candle['high'] >= last_candle['EMA_200']:
                         setup_candle = last_candle.copy()
                         pending_signal = "SELL"
-                        log(f"📉 SELL Setup on {symbol}: Candle at {setup_candle['time']} touched EMA (ATR: {setup_candle['ATR']:.4f}). Waiting for breakdown below {setup_candle['Low']:.5f}", log_callback)
+                        log(f"📉 SELL Setup on {symbol}: Candle at {setup_candle['time']} touched EMA (ATR: {setup_candle['ATR']:.4f}). Waiting for breakdown below {setup_candle['low']:.5f}", log_callback)
 
             if pending_signal:
                 tick = mt5.symbol_info_tick(symbol)
@@ -169,16 +175,17 @@ def _strategy_loop(symbol, timeframe, log_callback=None):
                     pending_signal = None; setup_candle = None
                     continue
 
-                if pending_signal == "BUY" and tick.ask > setup_candle['High']:
-                    log(f"🔥 BUY TRIGGER on {symbol}! Price {tick.ask:.5f} broke above {setup_candle['High']:.5f}", log_callback)
-                    stop_loss = setup_candle['Low'] - ((setup_candle['High'] - setup_candle['Low']) * 0.1)
+                # FIX: 'High', 'Low' -> 'high', 'low'
+                if pending_signal == "BUY" and tick.ask > setup_candle['high']:
+                    log(f"🔥 BUY TRIGGER on {symbol}! Price {tick.ask:.5f} broke above {setup_candle['high']:.5f}", log_callback)
+                    stop_loss = setup_candle['low'] - ((setup_candle['high'] - setup_candle['low']) * 0.1)
                     place_order(symbol, "BUY", stop_loss, log_callback)
                     pending_signal = None; setup_candle = None
                     time.sleep(60)
                 
-                elif pending_signal == "SELL" and tick.bid < setup_candle['Low']:
-                    log(f"🔥 SELL TRIGGER on {symbol}! Price {tick.bid:.5f} broke below {setup_candle['Low']:.5f}", log_callback)
-                    stop_loss = setup_candle['High'] + ((setup_candle['High'] - setup_candle['Low']) * 0.1)
+                elif pending_signal == "SELL" and tick.bid < setup_candle['low']:
+                    log(f"🔥 SELL TRIGGER on {symbol}! Price {tick.bid:.5f} broke below {setup_candle['low']:.5f}", log_callback)
+                    stop_loss = setup_candle['high'] + ((setup_candle['high'] - setup_candle['low']) * 0.1)
                     place_order(symbol, "SELL", stop_loss, log_callback)
                     pending_signal = None; setup_candle = None
                     time.sleep(60)
@@ -212,4 +219,3 @@ def stop_strategy(log_callback=None):
     log("🛑 Strategy stopping...", log_callback)
     time.sleep(1.5)
     log("✅ Strategy stopped.", log_callback)
-

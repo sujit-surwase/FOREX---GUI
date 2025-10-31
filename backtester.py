@@ -1,4 +1,3 @@
-# backtester.py
 # Runs a historical simulation based on the provided strategy file.
 
 import MetaTrader5 as mt5
@@ -46,17 +45,21 @@ def run_backtest(strategy_module, symbol, start_date, end_date, initial_balance,
             pnl = 0
             close_reason = None
             if open_position['type'] == 'BUY':
-                if current_candle['Low'] <= open_position['sl']:
+                # FIX: 'Low' -> 'low'
+                if current_candle['low'] <= open_position['sl']:
                     pnl = (open_position['sl'] - open_position['entry_price'])
                     close_reason = "Stop Loss"
-                elif current_candle['High'] >= open_position['tp']:
+                # FIX: 'High' -> 'high'
+                elif current_candle['high'] >= open_position['tp']:
                     pnl = (open_position['tp'] - open_position['entry_price'])
                     close_reason = "Take Profit"
             elif open_position['type'] == 'SELL':
-                if current_candle['High'] >= open_position['sl']:
+                # FIX: 'High' -> 'high'
+                if current_candle['high'] >= open_position['sl']:
                     pnl = (open_position['entry_price'] - open_position['sl'])
                     close_reason = "Stop Loss"
-                elif current_candle['Low'] <= open_position['tp']:
+                # FIX: 'Low' -> 'low'
+                elif current_candle['low'] <= open_position['tp']:
                     pnl = (open_position['entry_price'] - open_position['tp'])
                     close_reason = "Take Profit"
 
@@ -80,7 +83,8 @@ def run_backtest(strategy_module, symbol, start_date, end_date, initial_balance,
             signal, stop_loss = strategy_module.get_signal(historical_slice)
             
             if signal != "WAIT":
-                entry_price = current_candle['Close'] 
+                # FIX: 'Close' -> 'close'
+                entry_price = current_candle['close'] 
                 if stop_loss is None or not isinstance(stop_loss, (int, float)):
                     continue
                 sl_distance = abs(entry_price - stop_loss)
@@ -126,3 +130,4 @@ def run_backtest(strategy_module, symbol, start_date, end_date, initial_balance,
         'status': 'ok', 'start_date': start_date.strftime('%Y-%m-%d'), 'end_date': end_date.strftime('%Y-%m-%d'),
         'timeframe': timeframe_str, 'results': results_data
     }
+

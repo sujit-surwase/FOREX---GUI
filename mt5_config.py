@@ -1,6 +1,7 @@
 import MetaTrader5 as mt5
 import pandas as pd
 from datetime import datetime
+#owner - Sujit Surwase
 
 # === CONFIG ===
 LOGIN = 272511502
