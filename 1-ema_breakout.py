@@ -219,3 +219,5 @@ def stop_strategy(log_callback=None):
     log("🛑 Strategy stopping...", log_callback)
     time.sleep(1.5)
     log("✅ Strategy stopped.", log_callback)
+    #sujits code
+    #with the help of arnav
