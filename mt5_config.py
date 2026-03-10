@@ -4,10 +4,11 @@ from datetime import datetime
 #owner - Sujit Surwase
 
 # === CONFIG ===
-LOGIN = 272511502
+LOGIN = 433297549   # ✅ updated to your login
 PASSWORD = "Sujit@123"
-SERVER = "Exness-MT5Trial14"   # ✅ updated to your server
+SERVER = "Exness-MT5Trial7"  # ✅ updated to your server
 TERMINAL_PATH = "C:\\Program Files\\MetaTrader 5\\terminal64.exe"
+
 
 # === LOGGING ===
 def log(message, log_callback=None):

@@ -11,7 +11,7 @@ import traceback
 from datetime import datetime
 
 # --- Strategy Configuration ---
-VOLUME = 0.5  # Default/Max volume
+VOLUME = 1.0  # Default/Max volume
 MAGIC = 99999
 TRAILING_PERCENT = 0.07   # Trail by 7%
 TRAILING_ACTIVATION = 0.70 # Activate trailing at 70% of profit target
