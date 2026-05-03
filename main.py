@@ -1,6 +1,4 @@
 # main.py
-# The core script for the trading dashboard GUI.
-
 import tkinter as tk
 from tkinter import scrolledtext, ttk, messagebox
 import threading
