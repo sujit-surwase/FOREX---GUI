@@ -6,7 +6,7 @@ from datetime import datetime
 # === CONFIG ===
 LOGIN = 415665418   # ✅ updated to your login
 PASSWORD = "Sujit@123"
-SERVER = "Exness-MT5Trial4"  # ✅ updated to your server
+SERVER = "Exness-MT5Trial14"  # ✅ updated to your server
 TERMINAL_PATH = "C:\\Program Files\\MetaTrader 5\\terminal64.exe"
 
 

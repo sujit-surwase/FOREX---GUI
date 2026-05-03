@@ -209,7 +209,7 @@ def run_backtest(strategy_module, symbol, start_date, end_date, initial_balance,
                 worksheet.set_column('N:N', 12)  # Return %
                 worksheet.set_column('O:O', 15)  # Balance After
                 worksheet.set_column('P:P', 15)  # Closed By
-            
+             
             log_callback(f"✅ Excel file saved successfully!")
             log_callback(f"📍 Location: {full_path}")
             
